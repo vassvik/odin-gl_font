@@ -8,7 +8,7 @@ import (
 )
 
 main :: proc() {
-    resx, resy := 1280.0, 720.0;
+    resx, resy := 1920.0, 1080.0;
     window, success := init_glfw(i32(resx), i32(resy), "Odin Font Rendering");
     if !success {
         glfw.Terminate();
@@ -30,12 +30,13 @@ main :: proc() {
         glfw.PollEvents();
 
         gl.Clear(gl.COLOR_BUFFER_BIT);
-        
-        font.draw_string("20px font", 0.0, 0.0,                       20.0);
-        font.draw_string("48px font", 0.0, 20.0,                      48.0);
-        font.draw_string("72px font", 0.0, 20.0 + 48.0,               72.0);
-        font.draw_string("32px font", 0.0, 20.0 + 48.0 + 72.0,        32.0);
-        font.draw_string("16px font", 0.0, 20.0 + 48.0 + 72.0 + 32.0, 16.0);
+                
+        y_pos : f32 = 0.0;
+        font.draw_string("The quick brown fox jumps over the lazy dog 20px", 0.0, y_pos, 20.0); y_pos += 20.0;
+        font.draw_string("The quick brown fox jumps over the lazy dog 48px", 0.0, y_pos, 48.0); y_pos += 48.0;
+        font.draw_string("The quick brown fox jumps over the lazy dog 72px", 0.0, y_pos, 72.0); y_pos += 72.0;
+        font.draw_string("The quick brown fox jumps over the lazy dog 32px", 0.0, y_pos, 32.0); y_pos += 32.0;
+        font.draw_string("The quick brown fox jumps over the lazy dog 16px", 0.0, y_pos, 16.0); y_pos += 16.0;
 
         glfw.SwapBuffers(window);
     }
