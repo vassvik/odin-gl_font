@@ -100,6 +100,7 @@ restore_state :: proc() {
     else do Disable(BLEND);
 }
 
+
 draw_string :: proc(str: string, offset_x, offset_y: f32, size: f32) {
     idx := -1;
     for font_metric, i in font_metrics {
