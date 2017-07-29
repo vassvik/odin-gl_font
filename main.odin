@@ -8,7 +8,7 @@ import (
 )
 
 main :: proc() {
-    resx, resy := 1920.0, 1080.0;
+    resx, resy := 1600.0, 900.0;
     window, success := init_glfw(i32(resx), i32(resy), "Odin Font Rendering");
     if !success {
         glfw.Terminate();
@@ -21,9 +21,11 @@ main :: proc() {
     }
     gl.load_up_to(4, 5, set_proc_address);
 
-    font.init_font();
-
     gl.ClearColor(1.0, 1.0, 1.0, 1.0);
+
+    if !font.init("font_3x1.bin") do return;
+    defer font.cleanup();
+
     for glfw.WindowShouldClose(window) == glfw.FALSE {
         calculate_frame_timings(window);
         
@@ -31,13 +33,25 @@ main :: proc() {
 
         gl.Clear(gl.COLOR_BUFFER_BIT);
                 
-        y_pos : f32 = 0.0;
-        font.draw_string("The quick brown fox jumps over the lazy dog 20px", 0.0, y_pos, 20.0); y_pos += 20.0;
-        font.draw_string("The quick brown fox jumps over the lazy dog 48px", 0.0, y_pos, 48.0); y_pos += 48.0;
-        font.draw_string("The quick brown fox jumps over the lazy dog 72px", 0.0, y_pos, 72.0); y_pos += 72.0;
-        font.draw_string("The quick brown fox jumps over the lazy dog 32px", 0.0, y_pos, 32.0); y_pos += 32.0;
-        font.draw_string("The quick brown fox jumps over the lazy dog 16px", 0.0, y_pos, 16.0); y_pos += 16.0;
 
+        colors_font := font.get_colors();
+        for i in 0..4 {
+            colors_font[i] = font.Vec4{f32(rng()), f32(rng()), f32(rng()), 1.0};
+        }
+        font.update_colors(4);
+
+        str :: "The quick brown fox jumps over the lazy dog";
+        str_colors: [len(str)]u16;
+        for i in 0..len(str) do str_colors[i] = u16(i)&3;
+
+        y_pos : f32 = 0.0;
+        font.draw_string(0.0, y_pos, 20.0, str);                               y_pos += 20.0; // unformatted string with implicit palette index passing (implicit 0)
+        font.draw_string(0.0, y_pos, 28.0, 3, str);                            y_pos += 28.0; // unformatted string with explicit palette index passing
+        font.draw_string(0.0, y_pos, 24.0, str_colors[..], str);               y_pos += 24.0; // unformatted string with explicit palette index passing for the whole string
+        font.draw_string(0.0, y_pos, 32.0, 2, str);                            y_pos += 32.0; // unformatted string with explicit palette index passing
+        font.draw_format(0.0, y_pos, 16.0, "blehh %d %f: %s", 2, 3.14, str);   y_pos += 16.0; //   formatted string with implicit palette index passing (implicit 0)
+        font.draw_format(0.0, y_pos, 20.0, 1, "blah %d %f: %s", 4, 6.28, str); y_pos += 20.0; //   formatted string with explicit palette index passing
+        
         glfw.SwapBuffers(window);
     }
 }

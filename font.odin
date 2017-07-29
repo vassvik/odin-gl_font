@@ -1,11 +1,61 @@
+/*
+    OpenGL 4.5 font renderer
+
+    Uses a binary font format for the full ascii range (95 characters), which looks like the following:
+
+        first 4 bytes: number of font sizes
+        for each font size
+            a FontMetrics instance (16 bytes)
+            95 GlyphMetrics instances (28 bytes each)
+        the 1-byte bitmap
+
+    You can supply your own font file that follows these specifications when calling `init(filename)`.
+    A call to `init` should be matched with a call to `cleanup`.
+
+    @NOTE: Currently the size of the bitmap is hard coded to be 2048 pixels wide (the height can be anything).
+
+
+    You can use any of the following procedures to draw a string of characters:
+
+        draw_format :: proc(offset_x, offset_y, size: f32,                     fmt_string: string, args: ...any) -> (int, f32, f32) // vararg formatted string, implicit 0 color palette
+        draw_format :: proc(offset_x, offset_y, size: f32, palette_index: u16, fmt_string: string, args: ...any) -> (int, f32, f32) // vararg formatted string, explicit color palette
+        draw_string :: proc(offset_x, offset_y, size: f32,                     str: string)                      -> (int, f32, f32) // unformatted string, implicit 0 color palette
+        draw_string :: proc(offset_x, offset_y, size: f32, palette_index: u16, str: string)                      -> (int, f32, f32) // unformatted string, explicit color palette
+        draw_string :: proc(offset_x, offset_y, size: f32, palette: []u16,     str: string)                      -> (int, f32, f32) // unformatted string, per-glyph color palette
+
+    These will parse the string for you and place the strings appropriately, respecting new lines.
+    Note: All of these returns the number of glyphs drawn (stripped for newlines newlines) and the horizontal and vertical span of the string.
+    Note: If the font size is invalid, the drawing will be skipped.
+
+
+    For explicit control of each glyph, you can use get_instances() to grab the GlyphInstance slice to update every part of it however you want:
+
+        glyph_instances, glyph_metrics, font_metrics := font.get_data();
+        
+
+        // update glyph_instances
+
+        font.upload_instances(num);
+        font.draw_instances(num, offset_x, offset_y);
+
+
+    The color palette can be explicitly controlled:
+
+        colors_font := font.get_colors();
+        for i in 0..num {
+            colors_font[i] = font.Vec4{f32(rng()), f32(rng()), f32(rng()), 1.0};
+        }
+        font.update_colors(num);
+*/
+
 import (
     gl_font "gl.odin";
     os_font "os.odin";
     mem_font "mem.odin";
+    fmt_font "fmt.odin";
 );
 
 // wrapper to use GetUniformLocation with an Odin string
-// @NOTE: str has to be zero-terminated, so add a \x00 at the end
 GetUniformLocation_ :: proc(program: u32, str: string) -> i32 {
     return gl_font.GetUniformLocation(program, &str[0]);;
 }
@@ -15,6 +65,7 @@ GlyphMetrics :: struct #ordered {
     xoff, yoff, xadvance: f32;
     xoff2, yoff2: f32;
 };
+
 GlyphInstance :: struct #ordered {
     x, y: u16;
     index, palette: u16;
@@ -40,31 +91,34 @@ fixed_to_float :: proc(val: u16) -> f32 {
 
 
 
-
+// filled up by user
 max_instances :: 1000000;
-num_colors :: 4;
+glyph_instances: [1000000]GlyphInstance;
 
-glyph_instances: []GlyphInstance;
+// initialized from font binary file
 glyph_metrics: []GlyphMetrics;
 font_metrics: []FontMetrics;
+width, height: int;
 
-colors: [num_colors]Vec4;
+// 
+max_colors :: 0xFFFF;
+colors: [max_colors]Vec4;
 
+// globals for storing opengl changed state
 last_program, last_vertex_array: i32;
 last_texture: i32;
 last_blend_src, last_blend_dst: i32;
 last_blend_equation_rgb, last_blend_equation_alpha: i32;
 last_enable_blend, last_enable_depth_test: u8;
 
+// opengl objects: 
 glyph_instance_buffer, glyph_metric_buffer, color_buffer: u32;
-vao: u32;
-program: u32;
+vao, program: u32;
 texture_bitmap: u32;
 
-width, height: int;
 
 
-save_state :: proc() {
+save_state :: proc() #inline {
     using gl_font;
     // save state
     GetIntegerv(CURRENT_PROGRAM, &last_program);
@@ -83,7 +137,7 @@ save_state :: proc() {
     last_enable_depth_test = IsEnabled(DEPTH_TEST);
 }
 
-restore_state :: proc() {
+restore_state :: proc() #inline {
     using gl_font;
     // restore state
     UseProgram(cast(u32)last_program);
@@ -100,37 +154,52 @@ restore_state :: proc() {
     else do Disable(BLEND);
 }
 
-
-draw_string :: proc(str: string, offset_x, offset_y: f32, size: f32) {
-    idx := -1;
-    for font_metric, i in font_metrics {
-        if font_metric.size == size {
-            idx = i;
-        }
-    }
-    if idx == -1 do return;
-
+update_instances_from_string :: proc(str: string, palette: []u16, idx: int) -> (int, f32, f32) {
+    // parse the string, place the glyphs appropriately and set the colors
     cursor_x := f32(4.0);
     cursor_y := f32(4.0 + int(1.0*font_metrics[idx].ascent + 0.5));
+
+    extent_x := f32(0.0);
+    extent_y := f32(0.0);
+    max_extent_x := f32(0.0);
 
     num_instances := 0;
     for c, i in str {
         if c == '\n' {
-            cursor_x = f32(4.0);
+            cursor_x  = f32(4.0);
             cursor_y += f32(int(font_metrics[idx].size + 0.5));
+
+            max_extent_x = max(max_extent_x, extent_x);
+            extent_x = 0.0;
+            extent_y += f32(int(font_metrics[idx].size + 0.5));
+            continue;
         }
         glyph_instances[i].x = float_to_fixed(cursor_x);
         glyph_instances[i].y = float_to_fixed(cursor_y);
         glyph_instances[i].index = u16(idx)*95 + (u16(c) - 32);
-        glyph_instances[i].palette = u16(num_instances&3);
-
+        
+        if len(palette) == len(str) do glyph_instances[i].palette = palette[i] % len(colors);
+        else if len(palette) == 1   do glyph_instances[i].palette = palette[0] % len(colors);
+        
         cursor_x += glyph_metrics[u16(idx)*95+(u16(c) - 32)].xadvance;
+        extent_x += glyph_metrics[u16(idx)*95+(u16(c) - 32)].xadvance;
         num_instances += 1;
     }
+    max_extent_x = max(max_extent_x, extent_x);
+    if extent_x > 0.0 do extent_y += f32(int(font_metrics[idx].size + 0.5));
 
+
+    upload_instances(num_instances);
+
+    return num_instances, max_extent_x, extent_y;
+}
+
+upload_instances :: proc(num_instances: int) {
+    gl_font.NamedBufferSubData(glyph_instance_buffer, 0, size_of(GlyphInstance)*num_instances, &glyph_instances[0]);
+}
+
+draw_instances :: proc(num_instances: int, offset_x, offset_y: f32) {
     using gl_font;
-
-    NamedBufferSubData(glyph_instance_buffer, 0, size_of(GlyphInstance)*int(num_instances), &glyph_instances[0]);
 
     save_state();
 
@@ -157,7 +226,62 @@ draw_string :: proc(str: string, offset_x, offset_y: f32, size: f32) {
     restore_state();
 }
 
-cleanup_font :: proc() {
+draw_format :: proc(offset_x, offset_y, size: f32, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) {
+    return draw_format(offset_x, offset_y, size, 0, fmt_string, ...args);
+}
+
+draw_format :: proc(offset_x, offset_y, size: f32, palette_index: u16, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) {
+    if len(fmt_string) >= 512 do return 0, 0, 0;
+    buf: [512]u8;
+    a := fmt_font.bprintf(buf[..], fmt_string, ...args);
+    return draw_string(offset_x, offset_y, size, palette_index, a);
+}
+
+draw_string :: proc(offset_x, offset_y, size: f32, str: string) -> (num_instances: int, dx, dy: f32) {
+    return draw_string(offset_x, offset_y, size, 0, str);
+}
+
+draw_string :: proc(offset_x, offset_y, size: f32, palette_index: u16, str: string) -> (num_instances: int, dx, dy: f32) {
+    palette := [1]u16{palette_index};
+    return draw_string(offset_x, offset_y, size, palette[..], str);
+}
+
+draw_string :: proc(offset_x, offset_y, size: f32, palette: []u16, str: string) -> (num_instances: int, dx, dy: f32) {
+    // generic string drawing routine
+    // try to find the requested size, if not, return
+    idx := -1;
+    for font_metric, i in font_metrics {
+        if font_metric.size == size {
+            idx = i;
+        }
+    }
+    if idx == -1 do return 0, 0.0, 0.0;
+
+    // check if there is a 1-1 correspondence between the palette slice and the string, 
+    // or if there's only one color given
+    // otherwise, return
+    if (len(palette) != len(str)) && (len(palette) != 1) do return 0, 0.0, 0.0;
+
+    num_instances, dx, dy := update_instances_from_string(str, palette, idx);
+
+    draw_instances(num_instances, offset_x, offset_y);
+
+    return num_instances, dx, dy;
+}
+
+get_data :: proc() -> ([]GlyphInstance, []GlyphMetrics, []FontMetrics) {
+    return glyph_instances[..], glyph_metrics[..], font_metrics[..];
+}
+
+get_colors :: proc() -> []Vec4 {
+    return colors[..];
+}
+
+update_colors :: proc(num: int) {
+    gl_font.NamedBufferSubData(color_buffer, 0, size_of(Vec4)*num, &colors[0]);
+}
+
+cleanup :: proc() {
     using gl_font;
     DeleteProgram(program);
     DeleteVertexArrays(1, &vao);
@@ -167,16 +291,16 @@ cleanup_font :: proc() {
     DeleteBuffers(1, &glyph_metric_buffer);
     DeleteBuffers(1, &color_buffer);
 
-    free(glyph_instances);
+    //free(glyph_instances);
     free(glyph_metrics);
     free(font_metrics);
 }
 
-init_font :: proc() -> bool {
+init :: proc(filename: string) -> bool {
     using gl_font;
 
     // grab the binary font data
-    data_3x1, success_3x1 := os_font.read_entire_file("font_3x1.bin");
+    data_3x1, success_3x1 := os_font.read_entire_file(filename);
     if !success_3x1 do return false;
     defer free(data_3x1);
 
@@ -191,13 +315,12 @@ init_font :: proc() -> bool {
     // allocate slices/arrays
     font_metrics    = make([]FontMetrics,   num_sizes);
     glyph_metrics   = make([]GlyphMetrics,  num_sizes*95);
-    glyph_instances = make([]GlyphInstance, max_instances);
-    colors = [num_colors]Vec4{
-        {0.0, 0.0, 0.0, 1.0}, 
-        {1.0, 0.0, 0.0, 1.0}, 
-        {0.0, 1.0, 0.0, 1.0}, 
-        {0.0, 0.0, 1.0, 1.0}
-    };
+    //glyph_instances = make([]GlyphInstance, max_instances);
+
+    colors[0] = Vec4{0.0, 0.0, 0.0, 1.0};
+    colors[1] = Vec4{1.0, 0.0, 0.0, 1.0};
+    colors[2] = Vec4{0.0, 1.0, 0.0, 1.0};
+    colors[3] = Vec4{0.0, 0.0, 1.0, 1.0};
 
     // parse the remaining data
     rest := data_3x1[4..];
