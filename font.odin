@@ -302,7 +302,7 @@ cleanup :: proc() {
     free(font_metrics);
 }
 
-init :: proc(filename: string) -> bool {
+init :: proc(filename, filename_vs, filename_fs: string) -> bool {
     using gl;
 
     // grab the binary font data
@@ -312,7 +312,7 @@ init :: proc(filename: string) -> bool {
 
     // grab the shaders
     success_shaders: bool;
-    program, success_shaders = load_shaders("vertex_shader.vs", "fragment_shader.fs");
+    program, success_shaders = load_shaders(filename_vs, filename_fs);
     if !success_shaders do return false;
 
     // the first 4 bytes is the number of font sizes
