@@ -55,7 +55,7 @@
 */
 
 import (
-    "gl.odin";
+    "external/odin-gl/gl.odin";
     "os.odin";
     "mem.odin";
     "fmt.odin";
