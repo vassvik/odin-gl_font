@@ -38,6 +38,12 @@
         font.upload_instances(num);
         font.draw_instances(num, offset_x, offset_y);
 
+    @NOTE: The positions are 11.5 fixed point numbers, so to restrict the size of the data that is updated. 
+           Use font.float_to_fixed(val) to convert.
+           This also means that the maximum relative difference per glyph is restricted to 2048 pixels. 
+           These are chosen so that a full window at 1080p can be spanned. 
+           If you window is bigger than this, use string_offset to change the anchor.
+
 
     The color palette can be explicitly controlled:
 
@@ -49,15 +55,15 @@
 */
 
 import (
-    gl_font "gl.odin";
-    os_font "os.odin";
-    mem_font "mem.odin";
-    fmt_font "fmt.odin";
+    "gl.odin";
+    "os.odin";
+    "mem.odin";
+    "fmt.odin";
 );
 
 // wrapper to use GetUniformLocation with an Odin string
 GetUniformLocation_ :: proc(program: u32, str: string) -> i32 {
-    return gl_font.GetUniformLocation(program, &str[0]);;
+    return gl.GetUniformLocation(program, &str[0]);;
 }
 
 GlyphMetrics :: struct #ordered {
@@ -92,7 +98,7 @@ fixed_to_float :: proc(val: u16) -> f32 {
 
 
 // filled up by user
-max_instances :: 1000000;
+max_instances :: 1000000; // a million glyphs should be more than sufficient. 
 glyph_instances: [1000000]GlyphInstance;
 
 // initialized from font binary file
@@ -101,7 +107,7 @@ font_metrics: []FontMetrics;
 width, height: int;
 
 // 
-max_colors :: 0xFFFF;
+max_colors :: 65535;
 colors: [max_colors]Vec4;
 
 // globals for storing opengl changed state
@@ -119,7 +125,7 @@ texture_bitmap: u32;
 
 
 save_state :: proc() #inline {
-    using gl_font;
+    using gl;
     // save state
     GetIntegerv(CURRENT_PROGRAM, &last_program);
     GetIntegerv(VERTEX_ARRAY_BINDING, &last_vertex_array);
@@ -138,7 +144,7 @@ save_state :: proc() #inline {
 }
 
 restore_state :: proc() #inline {
-    using gl_font;
+    using gl;
     // restore state
     UseProgram(cast(u32)last_program);
     BindTexture(TEXTURE_2D, cast(u32)last_texture);
@@ -154,7 +160,7 @@ restore_state :: proc() #inline {
     else do Disable(BLEND);
 }
 
-update_instances_from_string :: proc(str: string, palette: []u16, idx: int) -> (int, f32, f32) {
+update_instances_from_string :: proc(str: string, palette: []u16, idx: int) -> (int, f32, f32) #inline {
     // parse the string, place the glyphs appropriately and set the colors
     cursor_x := f32(4.0);
     cursor_y := f32(4.0 + int(1.0*font_metrics[idx].ascent + 0.5));
@@ -195,11 +201,11 @@ update_instances_from_string :: proc(str: string, palette: []u16, idx: int) -> (
 }
 
 upload_instances :: proc(num_instances: int) {
-    gl_font.NamedBufferSubData(glyph_instance_buffer, 0, size_of(GlyphInstance)*num_instances, &glyph_instances[0]);
+    gl.NamedBufferSubData(glyph_instance_buffer, 0, size_of(GlyphInstance)*num_instances, &glyph_instances[0]);
 }
 
 draw_instances :: proc(num_instances: int, offset_x, offset_y: f32) {
-    using gl_font;
+    using gl;
 
     save_state();
 
@@ -226,22 +232,22 @@ draw_instances :: proc(num_instances: int, offset_x, offset_y: f32) {
     restore_state();
 }
 
-draw_format :: proc(offset_x, offset_y, size: f32, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) {
+draw_format :: proc(offset_x, offset_y, size: f32, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) #inline {
     return draw_format(offset_x, offset_y, size, 0, fmt_string, ...args);
 }
 
-draw_format :: proc(offset_x, offset_y, size: f32, palette_index: u16, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) {
+draw_format :: proc(offset_x, offset_y, size: f32, palette_index: u16, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) #inline {
     if len(fmt_string) >= 512 do return 0, 0, 0;
     buf: [512]u8;
-    a := fmt_font.bprintf(buf[..], fmt_string, ...args);
+    a := fmt.bprintf(buf[..], fmt_string, ...args);
     return draw_string(offset_x, offset_y, size, palette_index, a);
 }
 
-draw_string :: proc(offset_x, offset_y, size: f32, str: string) -> (num_instances: int, dx, dy: f32) {
+draw_string :: proc(offset_x, offset_y, size: f32, str: string) -> (num_instances: int, dx, dy: f32) #inline {
     return draw_string(offset_x, offset_y, size, 0, str);
 }
 
-draw_string :: proc(offset_x, offset_y, size: f32, palette_index: u16, str: string) -> (num_instances: int, dx, dy: f32) {
+draw_string :: proc(offset_x, offset_y, size: f32, palette_index: u16, str: string) -> (num_instances: int, dx, dy: f32) #inline {
     palette := [1]u16{palette_index};
     return draw_string(offset_x, offset_y, size, palette[..], str);
 }
@@ -278,11 +284,11 @@ get_colors :: proc() -> []Vec4 {
 }
 
 update_colors :: proc(num: int) {
-    gl_font.NamedBufferSubData(color_buffer, 0, size_of(Vec4)*num, &colors[0]);
+    gl.NamedBufferSubData(color_buffer, 0, size_of(Vec4)*num, &colors[0]);
 }
 
 cleanup :: proc() {
-    using gl_font;
+    using gl;
     DeleteProgram(program);
     DeleteVertexArrays(1, &vao);
     DeleteTextures(1, &texture_bitmap);
@@ -297,10 +303,10 @@ cleanup :: proc() {
 }
 
 init :: proc(filename: string) -> bool {
-    using gl_font;
+    using gl;
 
     // grab the binary font data
-    data_3x1, success_3x1 := os_font.read_entire_file(filename);
+    data_3x1, success_3x1 := os.read_entire_file(filename);
     if !success_3x1 do return false;
     defer free(data_3x1);
 
@@ -310,7 +316,7 @@ init :: proc(filename: string) -> bool {
     if !success_shaders do return false;
 
     // the first 4 bytes is the number of font sizes
-    num_sizes := cast(int)mem_font.slice_ptr(cast(^i32)&data_3x1[0], 1)[0];
+    num_sizes := cast(int)mem.slice_ptr(cast(^i32)&data_3x1[0], 1)[0];
 
     // allocate slices/arrays
     font_metrics    = make([]FontMetrics,   num_sizes);
@@ -325,10 +331,10 @@ init :: proc(filename: string) -> bool {
     // parse the remaining data
     rest := data_3x1[4..];
     for i in 0..num_sizes {
-        font_metrics[i] = mem_font.slice_ptr(cast(^FontMetrics)&rest[0], 1)[0];
+        font_metrics[i] = mem.slice_ptr(cast(^FontMetrics)&rest[0], 1)[0];
         rest = rest[16..];
 
-        for j in 0..95 do glyph_metrics[i*95 + j] = mem_font.slice_ptr(cast(^GlyphMetrics)&rest[0], 95)[j];
+        for j in 0..95 do glyph_metrics[i*95 + j] = mem.slice_ptr(cast(^GlyphMetrics)&rest[0], 95)[j];
         
         rest = rest[size_of(GlyphMetrics)*95..];
     }

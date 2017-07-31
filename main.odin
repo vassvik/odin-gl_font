@@ -33,11 +33,12 @@ main :: proc() {
 
         gl.Clear(gl.COLOR_BUFFER_BIT);
                 
+        seed = 123;
+        for i in 0..int(3.0*glfw.GetTime()) do rng();
 
         colors_font := font.get_colors();
-        for i in 0..4 {
-            colors_font[i] = font.Vec4{f32(rng()), f32(rng()), f32(rng()), 1.0};
-        }
+        for i in 0..4 do colors_font[i] = font.Vec4{f32(rng()), f32(rng()), f32(rng()), 1.0};
+        
         font.update_colors(4);
 
         str :: "The quick brown fox jumps over the lazy dog";
