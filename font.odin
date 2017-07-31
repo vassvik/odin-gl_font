@@ -302,13 +302,15 @@ cleanup :: proc() {
     free(font_metrics);
 }
 
-init :: proc(filename, filename_vs, filename_fs: string) -> bool {
+init :: proc(filename, filename_vs, filename_fs: string, set_proc_address: proc(p: rawptr, name: string)) -> bool {
     using gl;
 
     // grab the binary font data
     data_3x1, success_3x1 := os.read_entire_file(filename);
     if !success_3x1 do return false;
     defer free(data_3x1);
+
+    load_up_to(4, 5, set_proc_address);
 
     // grab the shaders
     success_shaders: bool;
