@@ -367,9 +367,9 @@ init :: proc(filename, filename_vs, filename_fs: string, set_proc_address: proc(
     BindBufferBase(SHADER_STORAGE_BUFFER, 1, glyph_metric_buffer);
     BindBufferBase(SHADER_STORAGE_BUFFER, 2, color_buffer);
 
-    NamedBufferData(glyph_instance_buffer, size_of(GlyphInstance)*max_instances, nil,               DYNAMIC_READ);
-    NamedBufferData(glyph_metric_buffer,   size_of(GlyphMetrics)*num_sizes*95,   &glyph_metrics[0], DYNAMIC_READ);
-    NamedBufferData(color_buffer,          size_of(colors),                      &colors[0],        DYNAMIC_READ);
+    NamedBufferData(glyph_instance_buffer, size_of(GlyphInstance)*max_instances, nil,               STATIC_DRAW);
+    NamedBufferData(glyph_metric_buffer,   size_of(GlyphMetrics)*num_sizes*95,   &glyph_metrics[0], STATIC_DRAW);
+    NamedBufferData(color_buffer,          size_of(colors),                      &colors[0],        STATIC_DRAW);
 
     return true;
 }
