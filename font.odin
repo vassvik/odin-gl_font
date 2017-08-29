@@ -54,12 +54,12 @@
         font.update_colors(num);
 */
 
-import (
-    "external/odin-gl/gl.odin";
-    "os.odin";
-    "mem.odin";
-    "fmt.odin";
-);
+
+import "external/odin-gl/gl.odin";
+import "os.odin";
+import "mem.odin";
+import "fmt.odin";
+
 
 // wrapper to use GetUniformLocation with an Odin string
 GetUniformLocation_ :: proc(program: u32, str: string) -> i32 {
