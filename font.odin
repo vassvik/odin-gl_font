@@ -310,8 +310,6 @@ init :: proc(filename, filename_vs, filename_fs: string, set_proc_address: proc(
     if !success_3x1 do return false;
     defer free(data_3x1);
 
-    load_up_to(4, 5, set_proc_address);
-
     // grab the shaders
     success_shaders: bool;
     program, success_shaders = load_shaders(filename_vs, filename_fs);
