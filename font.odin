@@ -55,10 +55,10 @@
 */
 
 
-import "external/odin-gl/gl.odin";
-import "os.odin";
-import "mem.odin";
-import "fmt.odin";
+import "shared:odin-gl/gl.odin";
+import "core:os.odin";
+import "core:mem.odin";
+import "core:fmt.odin";
 
 
 // wrapper to use GetUniformLocation with an Odin string
