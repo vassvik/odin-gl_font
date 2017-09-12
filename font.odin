@@ -268,6 +268,10 @@ draw_string :: proc(offset_x, offset_y, size: f32, palette: []u16, str: string) 
     // otherwise, return
     if (len(palette) != len(str)) && (len(palette) != 1) do return 0, 0.0, 0.0;
 
+    gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 0, glyph_instance_buffer);
+    gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, glyph_metric_buffer);
+    gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 2, color_buffer);
+
     num_instances, dx, dy := update_instances_from_string(str, palette, idx);
 
     draw_instances(num_instances, offset_x, offset_y);
