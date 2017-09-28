@@ -67,22 +67,22 @@ GetUniformLocation_ :: proc(program: u32, str: string) -> i32 {
 }
 
 GlyphMetrics :: struct #ordered {
-    x0, y0, x1, y1: u16; 
-    xoff, yoff, xadvance: f32;
-    xoff2, yoff2: f32;
+    x0, y0, x1, y1: u16, 
+    xoff, yoff, xadvance: f32,
+    xoff2, yoff2: f32,
 };
 
 GlyphInstance :: struct #ordered {
-    x, y: u16;
-    index, palette: u16;
+    x, y: u16,
+    index, palette: u16,
 };
 
 FontMetrics :: struct #ordered {
-    size, ascent, descent, linegap: f32;
+    size, ascent, descent, linegap: f32,
 };
 
 Vec4 :: struct #ordered {
-    x, y, z, w: f32;
+    x, y, z, w: f32,
 };
 
 // f32 to 11.5 fixed point, round to nearest fractional part
