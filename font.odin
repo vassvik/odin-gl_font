@@ -306,11 +306,11 @@ cleanup :: proc() {
     free(font_metrics);
 }
 
-init :: proc(filename, filename_vs, filename_fs: string, set_proc_address: proc(p: rawptr, name: string)) -> bool {
+init :: proc(filename_font, filename_vs, filename_fs: string) -> bool {
     using gl;
 
     // grab the binary font data
-    data_3x1, success_3x1 := os.read_entire_file(filename);
+    data_3x1, success_3x1 := os.read_entire_file(filename_font);
     if !success_3x1 do return false;
     defer free(data_3x1);
 
