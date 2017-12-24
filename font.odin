@@ -66,22 +66,22 @@ GetUniformLocation_ :: proc(program: u32, str: string) -> i32 {
     return gl.GetUniformLocation(program, &str[0]);;
 }
 
-GlyphMetrics :: struct #ordered {
+GlyphMetrics :: struct {
     x0, y0, x1, y1: u16, 
     xoff, yoff, xadvance: f32,
     xoff2, yoff2: f32,
 };
 
-GlyphInstance :: struct #ordered {
+GlyphInstance :: struct {
     x, y: u16,
     index, palette: u16,
 };
 
-FontMetrics :: struct #ordered {
+FontMetrics :: struct {
     size, ascent, descent, linegap: f32,
 };
 
-Vec4 :: struct #ordered {
+Vec4 :: struct {
     x, y, z, w: f32,
 };
 
@@ -124,7 +124,7 @@ texture_bitmap: u32;
 
 
 
-save_state :: proc() #inline {
+save_state :: inline proc() {
     using gl;
     // save state
     GetIntegerv(CURRENT_PROGRAM, &last_program);
@@ -143,7 +143,7 @@ save_state :: proc() #inline {
     last_enable_depth_test = IsEnabled(DEPTH_TEST);
 }
 
-restore_state :: proc() #inline {
+restore_state :: inline proc() {
     using gl;
     // restore state
     UseProgram(cast(u32)last_program);
@@ -160,7 +160,7 @@ restore_state :: proc() #inline {
     else do Disable(BLEND);
 }
 
-update_instances_from_string :: proc(str: string, palette: []u16, idx: int) -> (int, f32, f32) #inline {
+update_instances_from_string :: inline proc(str: string, palette: []u16, idx: int) -> (int, f32, f32) {
     // parse the string, place the glyphs appropriately and set the colors
     cursor_x := f32(4.0);
     cursor_y := f32(4.0 + int(1.0*font_metrics[idx].ascent + 0.5));
@@ -232,22 +232,22 @@ draw_instances :: proc(num_instances: int, offset_x, offset_y: f32) {
     restore_state();
 }
 
-draw_format :: proc(offset_x, offset_y, size: f32, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) #inline {
+draw_format :: inline proc(offset_x, offset_y, size: f32, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) {
     return draw_format(offset_x, offset_y, size, 0, fmt_string, ...args);
 }
 
-draw_format :: proc(offset_x, offset_y, size: f32, palette_index: u16, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) #inline {
+draw_format :: inline proc(offset_x, offset_y, size: f32, palette_index: u16, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) {
     if len(fmt_string) >= 512 do return 0, 0, 0;
     buf: [512]u8;
     a := fmt.bprintf(buf[..], fmt_string, ...args);
     return draw_string(offset_x, offset_y, size, palette_index, a);
 }
 
-draw_string :: proc(offset_x, offset_y, size: f32, str: string) -> (num_instances: int, dx, dy: f32) #inline {
+draw_string :: inline proc(offset_x, offset_y, size: f32, str: string) -> (num_instances: int, dx, dy: f32) {
     return draw_string(offset_x, offset_y, size, 0, str);
 }
 
-draw_string :: proc(offset_x, offset_y, size: f32, palette_index: u16, str: string) -> (num_instances: int, dx, dy: f32) #inline {
+draw_string :: inline proc(offset_x, offset_y, size: f32, palette_index: u16, str: string) -> (num_instances: int, dx, dy: f32) {
     palette := [1]u16{palette_index};
     return draw_string(offset_x, offset_y, size, palette[..], str);
 }
