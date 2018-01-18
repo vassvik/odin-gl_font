@@ -61,6 +61,11 @@ import "core:mem.odin";
 import "core:fmt.odin";
 
 
+// @TODO: this is to circumvent a bug
+max :: proc(a, b: $T) -> T {
+    return a < b ? b : a;
+}
+
 // wrapper to use GetUniformLocation with an Odin string
 GetUniformLocation_ :: proc(program: u32, str: string) -> i32 {
     return gl.GetUniformLocation(program, &str[0]);;
@@ -160,6 +165,8 @@ restore_state :: inline proc() {
     else do Disable(BLEND);
 }
 
+
+
 update_instances_from_string :: inline proc(str: string, palette: []u16, idx: int) -> (int, f32, f32) {
     // parse the string, place the glyphs appropriately and set the colors
     cursor_x := f32(4.0);
@@ -232,27 +239,29 @@ draw_instances :: proc(num_instances: int, offset_x, offset_y: f32) {
     restore_state();
 }
 
-draw_format :: inline proc(offset_x, offset_y, size: f32, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) {
+draw_format_defaultpalette :: inline proc(offset_x, offset_y, size: f32, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) {
     return draw_format(offset_x, offset_y, size, 0, fmt_string, ...args);
 }
 
-draw_format :: inline proc(offset_x, offset_y, size: f32, palette_index: u16, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) {
+draw_format_base :: inline proc(offset_x, offset_y, size: f32, palette_index: u16, fmt_string: string, args: ...any) -> (num_instances: int, dx, dy: f32) {
     if len(fmt_string) >= 512 do return 0, 0, 0;
     buf: [512]u8;
     a := fmt.bprintf(buf[..], fmt_string, ...args);
     return draw_string(offset_x, offset_y, size, palette_index, a);
 }
 
-draw_string :: inline proc(offset_x, offset_y, size: f32, str: string) -> (num_instances: int, dx, dy: f32) {
+draw_format :: proc[draw_format_base, draw_format_defaultpalette];
+
+draw_string_defaultpalette :: inline proc(offset_x, offset_y, size: f32, str: string) -> (num_instances: int, dx, dy: f32) {
     return draw_string(offset_x, offset_y, size, 0, str);
 }
 
-draw_string :: inline proc(offset_x, offset_y, size: f32, palette_index: u16, str: string) -> (num_instances: int, dx, dy: f32) {
+draw_string_paletteindex :: inline proc(offset_x, offset_y, size: f32, palette_index: u16, str: string) -> (num_instances: int, dx, dy: f32) {
     palette := [1]u16{palette_index};
     return draw_string(offset_x, offset_y, size, palette[..], str);
 }
 
-draw_string :: proc(offset_x, offset_y, size: f32, palette: []u16, str: string) -> (num_instances: int, dx, dy: f32) {
+draw_string_base :: proc(offset_x, offset_y, size: f32, palette: []u16, str: string) -> (num_instances: int, dx, dy: f32) {
     // generic string drawing routine
     // try to find the requested size, if not, return
     idx := -1;
@@ -278,6 +287,8 @@ draw_string :: proc(offset_x, offset_y, size: f32, palette: []u16, str: string) 
 
     return num_instances, dx, dy;
 }
+
+draw_string :: proc[draw_string_base, draw_string_paletteindex, draw_string_defaultpalette];
 
 get_data :: proc() -> ([]GlyphInstance, []GlyphMetrics, []FontMetrics) {
     return glyph_instances[..], glyph_metrics[..], font_metrics[..];
