@@ -24,8 +24,11 @@ offset_instances: int;
 offset_metrics: int;
 offset_colors: int;
 
-destroy_gl :: proc() {
+destroy_gl :: proc(font: Font) {
 	if colors != nil do free(colors);
+	if glyph_instances != nil do free(glyph_instances);
+
+	destroy(font);
 }
 
 init_from_ttf_gl :: proc(ttf_name, identifier: string, use_subpixels: bool, sizes: []int, codepoints: []rune) -> (Font, bool) {
@@ -50,7 +53,6 @@ init_from_ttf_gl :: proc(ttf_name, identifier: string, use_subpixels: bool, size
 	if !success {
 		return Font{}, false;
 	}
-
 
 	//
 	colors = make([]Vec4, 65536);

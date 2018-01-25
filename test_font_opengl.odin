@@ -29,6 +29,7 @@ main :: proc() {
 	if !success_font {
 		return;
 	}
+	defer font_gl.destroy_gl(font);
 
 	//
 	font_gl.colors[0] = Vec4{248/255.0, 248/255.0, 242/255.0, 1.0}; // white/text
