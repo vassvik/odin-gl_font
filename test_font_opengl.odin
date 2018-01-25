@@ -11,16 +11,16 @@ Vec4 :: #type_alias font_gl.Vec4;
 main :: proc() {
 
 	resx, resy := 1280/2, 720/2;
-    window := glfw.init_helper(resx, resy, "Odin Font Rendering", 4, 3, 0, false);
-    if window == nil {
-        glfw.Terminate();
-        return;
-    }
-    defer glfw.Terminate();
+	window := glfw.init_helper(resx, resy, "Odin Font Rendering", 4, 3, 0, false);
+	if window == nil {
+		glfw.Terminate();
+		return;
+	}
+	defer glfw.Terminate();
 
-    gl.load_up_to(4, 3, glfw.set_proc_address);
+	gl.load_up_to(4, 3, glfw.set_proc_address);
 
-    //
+	//
 	sizes := [...]int{72, 68, 64, 60, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 16, 12};
 	codepoints: [95]rune;
 	for i in 0..95 do codepoints[i] = rune(32+i);
@@ -42,12 +42,12 @@ main :: proc() {
 	fmt.println(font.glyph_metrics[14*95+65]);
 
 	//
-    gl.ClearColor(39/255.0, 40/255.0, 34/255.0, 1.0);
-    for !glfw.WindowShouldClose(window) {
-    	glfw.PollEvents();
-    	if glfw.GetKey(window, glfw.KEY_ESCAPE) do glfw.SetWindowShouldClose(window, true);
+	gl.ClearColor(39/255.0, 40/255.0, 34/255.0, 1.0);
+	for !glfw.WindowShouldClose(window) {
+		glfw.PollEvents();
+		if glfw.GetKey(window, glfw.KEY_ESCAPE) do glfw.SetWindowShouldClose(window, true);
 
-    	gl.Clear(gl.COLOR_BUFFER_BIT);
+		gl.Clear(gl.COLOR_BUFFER_BIT);
 
 		font_gl.set_state();
 		num, dx, dy := font_gl.parse_string(&font, "The quick brown fox jumps over the lazy dog", 16, nil, font_gl.glyph_instances);
@@ -59,6 +59,6 @@ main :: proc() {
 		num, dx, dy  = font_gl.parse_string(&font, "abcdefghijklmnopqrstuvwxyz0123456789!#¤%&/(", 16, nil, font_gl.glyph_instances);
 		font_gl.draw_instances(font_gl.glyph_instances[0..num], [2]f32{0.0, 49.0});
 
-    	glfw.SwapBuffers(window);
-    }
+		glfw.SwapBuffers(window);
+	}
 } 
