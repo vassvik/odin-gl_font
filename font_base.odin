@@ -30,23 +30,62 @@ Font :: struct {
 	oversample: [2]int,
 }
 
+destroy :: proc(using font: Font) {
+	if identifier != "" do free(identifier);
+	if codepoints != nil do free(codepoints);
+	if glyph_metrics != nil do free(glyph_metrics);
+	if size_metrics != nil do free(size_metrics);
+	if bitmap != nil do free(bitmap);
+}
 
-get_font_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, sizes: []int, codepoints: []rune) -> (Font, bool) {
+init_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, sizes: []int, codepoints: []rune, width := 2048) -> (Font, bool) {
 	using stbtt;
 
-	assert(len(codepoints) != 0, "No Unicode codepoints provided.");
-	assert(len(sizes) != 0, "No font sizes provided.");
+	// check input
+	if ttf_name == "" {
+		fmt.println("Error: No font file provided.");
+		return Font{}, false;
+	}
+
+	if codepoints == nil {
+		fmt.println("Error: No Unicode codepoints provided.");
+		return Font{}, false;
+	}
+
+	if sizes == nil {
+		fmt.println("Error: No font sizes provided.");
+		return Font{}, false;
+	}
+
+	if oversample[0] <= 0 || oversample[1] <= 0 {
+		fmt.println("Error: Invalid oversampling '%v' provided.", oversample);
+		return Font{}, false;
+	}
+
+	for size, i in sizes {
+		if size <= 0 {
+			fmt.println("Error: Invalid size '%d' at index '%d' detected.", size, i);
+			return Font{}, false;		
+		}
+	}
+
+	for codepoint, i in codepoints {
+		if codepoint <= 0 {
+			fmt.println("Error: Invalid codepoint '%c' at index '%d' detected.", codepoint, i);
+			return Font{}, false;		
+		}
+	}
 
 	// grab the data from the ttf file
 	ttf_data, ttf_success := os.read_entire_file(ttf_name);
 	if !ttf_success {
-		fmt.println("Error, could not read file.");
+		fmt.println("Error: could not read font file.");
 		return Font{}, false;
 	}
 	defer free(ttf_data);
 
 	// Calculate the maximum number of pixels used, 
-	// assuming all glyphs are squares and equal to the size in pixels.
+	// assuming all glyphs are squares and equal to the font size in pixels.
 	// This *will* overestimate the pixel count by *a lot*, 
 	// so we will not bother counting the padding
 	total_size := 0;
@@ -55,10 +94,8 @@ get_font_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, size
 	}
 	total_size *= oversample[0]*oversample[1]*len(codepoints);
 
-	// We will be using a width of 2048 when building the bitmap texture.
-	// We will eventually crop the bitmap and copy it to a new bitmap
+	// By the end we will crop the bitmap and copy it to a new bitmap
 	// to preserve storage space.
-	width := 2048;
 	height := total_size / width;
 
 	// make a temporary raster bitmap to be used by stb_truetype
@@ -76,7 +113,7 @@ get_font_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, size
 
 	// do the actual packing of the glyphs
 	pc, success_pack := pack_begin(bitmap_raster, width, height, 0, 1);   
-	pack_set_oversampling(&pc, oversample[0], oversample[1]); // say, choose 3x1 oversampling for subpixel positioning
+	pack_set_oversampling(&pc, oversample[0], oversample[1]); 
 	pack_font_ranges(&pc, ttf_data, 0, pack_ranges);
 	pack_end(&pc);
 
@@ -95,9 +132,6 @@ get_font_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, size
 		descent = f32(d)*scale;
 		linegap = f32(l)*scale;
 		size = f32(sizes[i]);
-
-		//fmt.println(size_metric^); // @DEBUG
-		fmt.println(size_metric^);
 	};
 
 	// get the tight bounds of the bitmap
@@ -105,7 +139,6 @@ get_font_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, size
 	for _, i in sizes {
 		for _, j in codepoints {
 			max_y = max(max_y, int(glyph_metrics[i*len(codepoints)+j].y1));
-			// fmt.println(sizes[i], codepoints[j], glyph_metrics[i][j]); // @DEBUG
 		}
 	}
 	max_y += 1;
@@ -141,6 +174,8 @@ get_font_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, size
 
 
 // Helpers
+Vec4 :: [4]f32;
+
 Glyph_Instance :: struct {
     x, y: u16,
     index, palette: u16,
@@ -157,9 +192,9 @@ fixed_to_float :: proc(val: u16) -> f32 {
 
 // routines for parsing a string, returning data that can be used for 
 // returns the number of drawn glyphs (ignoring newlines), and the size of the bounding box of the string
-parse_string_allocate :: proc(using font: ^Font, str: string, palette: []u16, size: int) -> ([]Glyph_Instance, int, f32, f32) {
+parse_string_allocate :: proc(using font: ^Font, str: string, ask_size: int, palette: []u16) -> ([]Glyph_Instance, int, f32, f32) {
 	instances := make([]Glyph_Instance, len(str));
-	num, dx, dy := parse_string_provided(font, str, size, palette, instances);
+	num, dx, dy := parse_string_provided(font, str, ask_size, palette, instances);
 	return instances, num, dx, dy;
 }
 
@@ -204,10 +239,10 @@ parse_string_provided :: proc(using font: ^Font, str: string, ask_size: int, pal
         }
         instances[num].index = u16(index);
 
-        //fmt.println(index, c);
-        //fmt.println(c, cursor_x, cursor_y, glyph_metrics[index]);
-       // fmt.println(linegap);
-        cursor_x += glyph_metrics[index].xadvance;
+        //cursor_x += cast(f32)int(glyph_metrics[index].xadvance);
+        //cursor_x += glyph_metrics[index].xadvance;
+        cursor_x += cast(f32)int(glyph_metrics[index].xadvance + 0.5);
+
         num += 1;
     }
 
@@ -251,4 +286,3 @@ save_as_png :: proc(using font: ^Font) {
 	stbi.write_png(output_filename, width, height, 3, color_image, 0);
 }
 
-Vec4 :: [4]f32;

@@ -17,11 +17,16 @@
 
     You can use any of the following procedures to draw a string of characters:
 
-        draw_format :: proc(offset_x, offset_y, size: f32,                     fmt_string: string, args: ...any) -> (int, f32, f32) // vararg formatted string, implicit 0 color palette
-        draw_format :: proc(offset_x, offset_y, size: f32, palette_index: u16, fmt_string: string, args: ...any) -> (int, f32, f32) // vararg formatted string, explicit color palette
-        draw_string :: proc(offset_x, offset_y, size: f32,                     str: string)                      -> (int, f32, f32) // unformatted string, implicit 0 color palette
-        draw_string :: proc(offset_x, offset_y, size: f32, palette_index: u16, str: string)                      -> (int, f32, f32) // unformatted string, explicit color palette
-        draw_string :: proc(offset_x, offset_y, size: f32, palette: []u16,     str: string)                      -> (int, f32, f32) // unformatted string, per-glyph color palette
+// vararg formatted string, implicit 0 color palette
+draw_format :: proc(offset_x, offset_y, size: f32,                     fmt_string: string, args: ...any) -> (int, f32, f32) 
+// vararg formatted string, explicit color palette
+draw_format :: proc(offset_x, offset_y, size: f32, palette_index: u16, fmt_string: string, args: ...any) -> (int, f32, f32) 
+// unformatted string, implicit 0 color palette
+draw_string :: proc(offset_x, offset_y, size: f32,                     str: string)                      -> (int, f32, f32) 
+// unformatted string, explicit color palette
+draw_string :: proc(offset_x, offset_y, size: f32, palette_index: u16, str: string)                      -> (int, f32, f32) 
+// unformatted string, per-glyph color palette
+draw_string :: proc(offset_x, offset_y, size: f32, palette: []u16,     str: string)                      -> (int, f32, f32) 
 
     These will parse the string for you and place the strings appropriately, respecting new lines.
     Note: All of these returns the number of glyphs drawn (stripped for newlines newlines) and the horizontal and vertical span of the string.
@@ -281,7 +286,7 @@ draw_string_base :: proc(offset_x, offset_y, size: f32, palette: []u16, str: str
     gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 1, glyph_metric_buffer);
     gl.BindBufferBase(gl.SHADER_STORAGE_BUFFER, 2, color_buffer);
 
-    num_instances, dx, dy := update_instances_from_string(str, palette, idx);
+    num_instances, dx, dy = update_instances_from_string(str, palette, idx);
 
     draw_instances(num_instances, offset_x, offset_y);
 

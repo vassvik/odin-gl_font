@@ -1,132 +1,176 @@
 import "core:fmt.odin";
 import "core:mem.odin";
 
-import "shared:odin-glfw/glfw.odin";
 import "shared:odin-gl/gl.odin";
 
 export "font_base.odin";
 
 
-main :: proc() {
-	sizes := [...]int{72, 68, 64, 60, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 16, 12};
-	codepoints: [95]rune;
-	for i in 0..95 do codepoints[i] = rune(32+i);
+MAX_COLORS :: 65536;
+colors: []Vec4;
 
-	font, success_font := get_font_from_ttf("consola.ttf", "Consola", [2]int{1, 1}, sizes[...], codepoints[...]);
-	if !success_font {
-		return;
+program: u32;
+vao: u32;
+texture: u32;
+all_buffer: u32;
+
+MAX_INSTANCES :: 1000000;
+glyph_instances: []Glyph_Instance;
+
+size_instances: int;
+size_metrics: int;
+size_colors: int;
+offset_instances: int;
+offset_metrics: int;
+offset_colors: int;
+
+destroy_gl :: proc() {
+	if colors != nil do free(colors);
+}
+
+init_from_ttf_gl :: proc(ttf_name, identifier: string, use_subpixels: bool, sizes: []int, codepoints: []rune) -> (Font, bool) {
+	
+	// check for opengl function pointers.
+	if gl.loaded_up_to_major*10 + gl.loaded_up_to_minor < 43 {
+		fmt.println("Error: Function pointers for OpenGL version 4.3 not loaded. Got '%d.%d' instead.", gl.loaded_up_to_major, gl.loaded_up_to_minor);
+		return Font{}, false;
 	}
-	save_as_png(&font);
 
-	resx, resy := 1600, 900;
-    window := glfw.init_helper(resx, resy, "Odin Font Rendering", 4, 3, 0, true);
-    if window == nil {
-        glfw.Terminate();
-        return;
-    }
-    defer glfw.Terminate();
-
-    gl.load_up_to(4, 3, glfw.set_proc_address);
-
-
-    program, success_program := gl.load_shaders_source(vertex_shader, fragment_shader);
-    if !success_program do return;
+	// load shaders from source
+	_program, success_program := gl.load_shaders_source(vertex_shader_source, fragment_shader_source);
+    if !success_program {
+    	fmt.println("Error: Could not load font shaders.");
+    	return Font{}, false;
+	}
+	program = _program;
     gl.UseProgram(program);
 
-    MAX_INSTANCES :: 10000;
-    colors := make([]Vec4, 65536);
-    defer free(colors);
+	// init the base font stuff
+	font, success := init_from_ttf(ttf_name, identifier, use_subpixels ? [2]int{3, 1} : [2]int{1,1}, sizes, codepoints);
+	if !success {
+		return Font{}, false;
+	}
 
-    //asd
-    vao: u32;
+
+	//
+	colors = make([]Vec4, 65536);
+
+    //
+    glyph_instances = make([]Glyph_Instance, MAX_INSTANCES);
+
+
+	//
     gl.GenVertexArrays(1, &vao);
     gl.BindVertexArray(vao);
 
-    // @TODO: update to bindless textures?
-    texture: u32;
+    //
     gl.GenTextures(1, &texture);
     gl.ActiveTexture(gl.TEXTURE0);
     gl.BindTexture(gl.TEXTURE_2D, texture);
 
-    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, i32(font.width), i32(font.height), 0, gl.RED, gl.UNSIGNED_BYTE, &font.bitmap[0]);
-    
-// SSBO's for general gpu storage, used for indirect lookup using instance ID
-all_buffer: u32;
-gl.GenBuffers(1, &all_buffer);
 
-offset: i32;
-gl.GetIntegerv(gl.SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &offset);
+	// SSBO's for general gpu storage, used for indirect lookup using instance ID
+	gl.GenBuffers(1, &all_buffer);
 
-size_instances := size_of(Glyph_Instance)*MAX_INSTANCES;
-size_glyph_metrics := size_of(Glyph_Metric)*len(font.size_metrics)*len(font.codepoints);
-size_colors := size_of(Vec4)*len(colors);
+	//
+	round_up_power_of_two :: proc(value: int, pot: int) -> int {
+		return (value + pot/2) & ~int(pot-1);
+	}
 
-// @WARNING: must round to nearest multiple of `offset` to satisfy opengl's alignment requirements
-size_instances_rounded := int(size_instances+0x20)&(~int(0x3f));
-size_glyph_metrics_rounded := int(size_glyph_metrics+0x20)&(~int(0x3f));
-size_colors_rounded := int(size_colors+0x20)&(~int(0x3f));
+	//
+	size_instances = size_of(Glyph_Instance)*MAX_INSTANCES;
+	size_metrics   = size_of(Glyph_Metric)*len(font.size_metrics)*len(font.codepoints);
+	size_colors    = size_of(Vec4)*len(colors);
+	
+	//offset: i32;
+	//gl.GetIntegerv(gl.SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &offset);
+	// @NOTE: just assume the offset is 64
 
-fmt.println(len(font.size_metrics), len(font.codepoints), len(font.size_metrics)*len(font.codepoints));
+	// @WARNING: must round to nearest multiple of `offset` to satisfy opengl's alignment requirements
+	size_instances_rounded := round_up_power_of_two(size_instances, 64);
+	size_metrics_rounded   := round_up_power_of_two(size_metrics,   64);
+	size_colors_rounded    := round_up_power_of_two(size_colors,    64);
+	size_total_rounded     := size_instances_rounded + size_metrics_rounded + size_colors_rounded;
+	
+	offset_instances = 0;
+	offset_metrics   = offset_instances + size_instances_rounded;
+	offset_colors    = offset_metrics   + size_metrics;
 
-all_data := make([]byte, size_instances_rounded+size_glyph_metrics_rounded+size_colors_rounded);
-mem.copy(&all_data[size_instances_rounded], &font.glyph_metrics[0], size_glyph_metrics);
-mem.copy(&all_data[size_instances_rounded+size_glyph_metrics_rounded], &colors[0], size_colors);
+	//
+	all_data := make([]byte, size_total_rounded);
+	mem.copy(&all_data[offset_metrics], &font.glyph_metrics[0], size_metrics);
+	mem.copy(&all_data[offset_colors],  &colors[0],             size_colors);
 
-gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, all_buffer);
-gl.BufferData(gl.SHADER_STORAGE_BUFFER, size_instances_rounded+size_colors_rounded+size_glyph_metrics_rounded, &all_data[0], gl.DYNAMIC_DRAW); // @WARNING: Performance concerns?
+	// 
+	gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, all_buffer);
+	gl.BufferData(gl.SHADER_STORAGE_BUFFER, size_total_rounded, &all_data[0], gl.DYNAMIC_DRAW); // @WARNING: Performance concerns?
 
-gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 0, all_buffer, 0, size_instances);
-gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 1, all_buffer, size_instances_rounded, size_glyph_metrics);
-gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 2, all_buffer, size_instances_rounded+size_glyph_metrics_rounded, size_colors);
+	//
+	gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 0, all_buffer, offset_instances, size_instances);
+	gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 1, all_buffer, offset_metrics,   size_metrics);
+	gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 2, all_buffer, offset_colors,    size_colors);
 
+	// 
+	gl.UseProgram(program);
     gl.Uniform2f(gl.get_uniform_location(program, "bitmap_resolution"), f32(font.width), f32(font.height)); 
     gl.Uniform1i(gl.get_uniform_location(program, "sampler_bitmap"), 0);
+    gl.Uniform1i(gl.get_uniform_location(program, "use_subpixels"), i32(use_subpixels));
 
-    //
-    glyph_instances := make([]Glyph_Instance, MAX_INSTANCES);
-
-
-    gl.Disable(gl.DEPTH_TEST);
-    gl.Enable(gl.BLEND);
-    gl.BlendEquation(gl.FUNC_ADD);
-    gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-    gl.ClearColor(0.9, 0.9, 0.9, 1.0);
-    for !glfw.WindowShouldClose(window) {
-    	glfw.PollEvents();
-    	if glfw.GetKey(window, glfw.KEY_ESCAPE) do glfw.SetWindowShouldClose(window, true);
-
-    	gl.Clear(gl.COLOR_BUFFER_BIT);
-
-    	gl.UseProgram(program);
-
-
-    	num, dx, dy := parse_string(&font, "this is\nall in a single\n    drawcall", 72, nil, glyph_instances);
-
-    	gl.BindVertexArray(vao);	 
-    	gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, all_buffer);   
-	    gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 0, all_buffer, 0, size_instances);
-	    gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 1, all_buffer, size_instances_rounded, size_glyph_metrics);
-	    gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 2, all_buffer, size_instances_rounded+size_glyph_metrics_rounded, size_colors);
-	    gl.BufferSubData(gl.SHADER_STORAGE_BUFFER, 0, num*size_of(Glyph_Instance), &glyph_instances[0]);
-
-
-	    gl.ActiveTexture(gl.TEXTURE0);
-	    gl.BindTexture(gl.TEXTURE_2D, texture);
-	    gl.Uniform2f(gl.get_uniform_location(program, "window_resolution"), f32(resx), f32(resy));
-    	gl.Uniform2f(gl.get_uniform_location(program, "string_offset"), f32(0.0), f32(0.0)); 
-
-    	gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, cast(i32)num);
-
-    	glfw.SwapBuffers(window);
-    }
+	return font, true;
 }
 
 
 
-vertex_shader := `
+update_colors :: proc(start, num: int) {
+	gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, all_buffer);
+ 	gl.BufferSubData(gl.SHADER_STORAGE_BUFFER, offset_colors, num*size_of(Vec4), &colors[start]);
+}
+
+set_state :: proc() {
+	//
+	gl.Disable(gl.DEPTH_TEST);
+    gl.Enable(gl.BLEND);
+    gl.BlendEquation(gl.FUNC_ADD);
+    gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+	//
+	gl.BindVertexArray(vao);
+	gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, all_buffer);
+
+    //
+    gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 0, all_buffer, offset_instances, size_instances);
+    gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 1, all_buffer, offset_metrics,   size_metrics);
+    gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 2, all_buffer, offset_colors,    size_colors);
+
+    //
+    gl.ActiveTexture(gl.TEXTURE0);
+    gl.BindTexture(gl.TEXTURE_2D, texture);
+
+    //
+    dims: [4]i32;
+    gl.GetIntegerv(gl.VIEWPORT, &dims[0]);
+
+    //
+	gl.UseProgram(program);
+    gl.Uniform2f(gl.get_uniform_location(program, "window_resolution"), f32(dims[2] - dims[0]), f32(dims[3]-dims[1]));
+
+}
+
+draw_instances :: proc(instances: []Glyph_Instance, offset: [2]f32) {
+	//
+	gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, all_buffer);
+ 	gl.BufferSubData(gl.SHADER_STORAGE_BUFFER, 0, len(instances)*size_of(Glyph_Instance), &instances[0]);
+	
+	gl.Uniform2f(gl.get_uniform_location(program, "string_offset"),     offset.x,     offset.y); 
+ 	
+	//
+	gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, cast(i32)len(instances));
+}
+
+vertex_shader_source := `
 #version 430 core
 
 // glyph data types and buffers
@@ -190,7 +234,7 @@ void main() {
 }
 `;
 
-fragment_shader := `
+fragment_shader_source := `
 #version 430 core
 
 layout (std430, binding = 2) buffer color_buffer {
@@ -201,12 +245,25 @@ flat in uint palette_index;
 in vec2 uv;
 
 uniform sampler2D sampler_bitmap;
+uniform vec2 bitmap_resolution;
+uniform bool use_subpixels;
 
 out vec4 color;
 
 void main() {
-     float a = texture(sampler_bitmap, uv).r;
-     vec3 c = palette[palette_index];
-     color = vec4(c, a);
+	if (use_subpixels) {
+	    float r = textureOffset(sampler_bitmap, uv, ivec2(0, 0)).r;
+	    float g = textureOffset(sampler_bitmap, uv, ivec2(1, 0)).r;
+	    float b = textureOffset(sampler_bitmap, uv, ivec2(2, 0)).r;
+	    vec3 c = palette[palette_index];
+	    vec3 bg_color = vec3(39/255.0, 40/255.0, 34/255.0);
+
+	    vec3 col = bg_color*(1.0 - vec3(r,g,b)) + c*vec3(r, g, b);
+	    color = vec4(col, 1.0);
+    } else {
+    	float a = texture(sampler_bitmap, uv).r;
+    	vec3 c = palette[palette_index];
+    	color = vec4(c, a);
+    }
 }
 `;
