@@ -161,11 +161,13 @@ set_state :: proc() {
 }
 
 draw_instances :: proc(instances: []Glyph_Instance, offset: [2]f32) {
+	if len(instances) == 0 do return;
+
 	//
 	gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, all_buffer);
  	gl.BufferSubData(gl.SHADER_STORAGE_BUFFER, 0, len(instances)*size_of(Glyph_Instance), &instances[0]);
 	
-	gl.Uniform2f(gl.get_uniform_location(program, "string_offset"),     offset.x,     offset.y); 
+	gl.Uniform2f(gl.get_uniform_location(program, "string_offset"), offset.x, offset.y); 
  	
 	//
 	gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, cast(i32)len(instances));

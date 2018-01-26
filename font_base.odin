@@ -58,20 +58,20 @@ init_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, sizes: [
 	}
 
 	if oversample[0] <= 0 || oversample[1] <= 0 {
-		fmt.println("Error: Invalid oversampling '%v' provided.", oversample);
+		fmt.printf("Error: Invalid oversampling '%v' provided.\n", oversample);
 		return Font{}, false;
 	}
 
 	for size, i in sizes {
 		if size <= 0 {
-			fmt.println("Error: Invalid size '%d' at index '%d' detected.", size, i);
+			fmt.printf("Error: Invalid size '%d' at index '%d' detected.\n", size, i);
 			return Font{}, false;		
 		}
 	}
 
 	for codepoint, i in codepoints {
 		if codepoint <= 0 {
-			fmt.println("Error: Invalid codepoint '%c' at index '%d' detected.", codepoint, i);
+			fmt.printf("Error: Invalid codepoint '%c' at index '%d' detected.\n", codepoint, i);
 			return Font{}, false;		
 		}
 	}

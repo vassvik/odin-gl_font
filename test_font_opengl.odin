@@ -45,11 +45,6 @@ main :: proc() {
 	font_gl.colors[5] = Vec4{249/255.0, 38/255.0,  114/255.0, 1.0}; // red/keywords
 	font_gl.update_colors(0, 6);
 
-	fmt.println(font.glyph_metrics[14*95+65]);
-	fmt.println(font.codepoints_are_dense, font.codepoints_are_sorted);
-
-	fmt.printf("%.7f\n", 3.14);
-
 	//
 	gl.ClearColor(39/255.0, 40/255.0, 34/255.0, 1.0);
 	for !glfw.WindowShouldClose(window) {
