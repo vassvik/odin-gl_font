@@ -190,6 +190,36 @@ fixed_to_float :: proc(val: u16) -> f32 {
 	return f32(val/32.0);
 }
 
+bisect :: proc(data: []rune, value: rune) -> int {
+	start := 0;
+	stop := len(data)-1;
+	
+	// test for invalid data
+	if len(data) == 0 do return -1;
+	if value < data[start] do return -1;      // out of bounds
+	if value > data[stop] do return -1;       // out of bounds
+	if data[stop] < data[start] do return -1; // definitely not sorted
+
+	// special cases
+	if value == data[start] do return start;
+	if value == data[stop] do return stop;
+
+	// iterate
+	for start <= stop {
+		mid := (start + stop)/2;
+		if value == data[mid] {
+			return mid;
+		} else if value < data[mid] {
+			stop = mid - 1;
+		} else {
+			start = mid + 1;
+		}
+	}
+
+	// not found
+	return -1;
+}
+
 // routines for parsing a string, returning data that can be used for 
 // returns the number of drawn glyphs (ignoring newlines), and the size of the bounding box of the string
 parse_string_allocate :: proc(using font: ^Font, str: string, ask_size: int, palette: []u16) -> ([]Glyph_Instance, int, f32, f32) {
@@ -209,6 +239,8 @@ parse_string_provided :: proc(using font: ^Font, str: string, ask_size: int, pal
 	}
 	if idx == -1 do return -1, 0.0, 0.0;
 	
+	if len(palette) > 1 && len(str) != len(palette) do return -1, 0.0, 0.0;
+
 	using m := &font.size_metrics[idx];
 
 	// step through the string, and advance the cursor
@@ -227,28 +259,41 @@ parse_string_provided :: proc(using font: ^Font, str: string, ask_size: int, pal
 
         instances[num].x = float_to_fixed(cursor_x);
         instances[num].y = float_to_fixed(cursor_y);
-        instances[num].palette = palette == nil ? 0 : palette[i];
+        instances[num].palette = palette == nil ? 0 : len(palette) == 1 ? palette[0] : palette[i];
 
-        index: int;
+        index := -1;
         if codepoints_are_dense {
-        	index = idx*len(codepoints) + int(c - codepoints[0]);
+        	if int(c - codepoints[0]) >= 0 && int(c - codepoints[0]) < len(codepoints) {
+        		index = idx*len(codepoints) + int(c - codepoints[0]);
+        	}
         } else if codepoints_are_sorted {
         	// bisection
+        	if i := bisect(codepoints, c); i != -1 {
+        		index = idx*len(codepoints) + i;
+        	}
         } else {
         	// linear search
+        	for C, i in codepoints {
+        		if C == c {
+        			index = idx*len(codepoints) + i;
+        			break;
+        		}
+        	}
         }
+        if index == -1 do break;
         instances[num].index = u16(index);
 
         //cursor_x += cast(f32)int(glyph_metrics[index].xadvance);
         //cursor_x += glyph_metrics[index].xadvance;
-        cursor_x += cast(f32)int(glyph_metrics[index].xadvance + 0.5);
-
+        cursor_x += cast(f32)int(glyph_metrics[index].xadvance + 0.5); // round to nearest integer
+        //fmt.println(num, cursor_y);
         num += 1;
     }
 
     max_cursor_x = max(max_cursor_x, cursor_x);
-    if cursor_x > 0.0 do cursor_y += size;
-    cursor_y -= descent;
+    //if cursor_x > 0.0 do cursor_y += size;
+    cursor_y += -descent + linegap;
+
 
     return num, max_cursor_x, cursor_y;
 }

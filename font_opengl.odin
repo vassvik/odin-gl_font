@@ -60,7 +60,6 @@ init_from_ttf_gl :: proc(ttf_name, identifier: string, use_subpixels: bool, size
     //
     glyph_instances = make([]Glyph_Instance, MAX_INSTANCES);
 
-
 	//
     gl.GenVertexArrays(1, &vao);
     gl.BindVertexArray(vao);
@@ -172,6 +171,28 @@ draw_instances :: proc(instances: []Glyph_Instance, offset: [2]f32) {
 	gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, cast(i32)len(instances));
 }
 
+str_backing: [1024]u8;
+
+draw_string_nopalette :: inline proc(font: ^Font, size: int, at: [2]f32, palette: u16, format: string, args: ...any) -> (int, f32, f32) {
+	return draw_string_palette(font, size, at, []u16{palette}, format, ...args);
+}
+
+draw_string_palette :: inline proc(font: ^Font, size: int, at: [2]f32, palette: []u16, format: string, args: ...any) -> (int, f32, f32) {
+	str: string;
+	if len(args) > 0 {
+		str = fmt.bprintf(str_backing[...], format, ...args);
+	} else {
+		str = format;
+	}
+
+	num, dx, dy := parse_string(font, str, size, palette, glyph_instances);
+	draw_instances(glyph_instances[0..num], at);
+
+	return num, dx, dy;
+}
+
+draw_string :: proc[draw_string_palette, draw_string_nopalette];
+
 vertex_shader_source := `
 #version 430 core
 
@@ -240,7 +261,7 @@ fragment_shader_source := `
 #version 430 core
 
 layout (std430, binding = 2) buffer color_buffer {
-    vec3 palette[];
+    vec4 palette[];
 };
 
 flat in uint palette_index;
@@ -254,18 +275,17 @@ out vec4 color;
 
 void main() {
 	if (use_subpixels) {
-	    float r = textureOffset(sampler_bitmap, uv, ivec2(0, 0)).r;
-	    float g = textureOffset(sampler_bitmap, uv, ivec2(1, 0)).r;
-	    float b = textureOffset(sampler_bitmap, uv, ivec2(2, 0)).r;
-	    vec3 c = palette[palette_index];
-	    vec3 bg_color = vec3(39/255.0, 40/255.0, 34/255.0);
+	    float r = textureOffset(sampler_bitmap, uv, ivec2(-1, 0)).r;
+	    float g = textureOffset(sampler_bitmap, uv, ivec2(0, 0)).r;
+	    float b = textureOffset(sampler_bitmap, uv, ivec2(1, 0)).r;
+	    vec4 c = palette[palette_index];
+	    vec4 bg_color = vec4(39/255.0, 40/255.0, 34/255.0, 1.0);
 
-	    vec3 col = bg_color*(1.0 - vec3(r,g,b)) + c*vec3(r, g, b);
-	    color = vec4(col, 1.0);
+	   	color = mix(bg_color, c, vec4(r, g, b, 1.0));
     } else {
     	float a = texture(sampler_bitmap, uv).r;
-    	vec3 c = palette[palette_index];
-    	color = vec4(c, a);
+    	vec4 c = palette[palette_index];
+    	color = vec4(c.xyz, a*c.w);
     }
 }
 `;
