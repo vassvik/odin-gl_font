@@ -132,6 +132,7 @@ update_colors :: proc(start, num: int) {
 
 set_state :: proc() {
 	//
+	gl.Disable(gl.CULL_FACE);
 	gl.Disable(gl.DEPTH_TEST);
     gl.Enable(gl.BLEND);
     gl.BlendEquation(gl.FUNC_ADD);

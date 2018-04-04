@@ -7,7 +7,7 @@ import stbi "shared:odin-stb/stb_image_write.odin";
 import stbtt "shared:odin-stb/stb_truetype.odin"
 
 
-Glyph_Metric :: #type_alias stbtt.Packed_Char;
+Glyph_Metric :: stbtt.Packed_Char;
 
 Size_Metric :: struct {
 	size: f32,
