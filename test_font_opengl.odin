@@ -6,7 +6,7 @@ import "shared:odin-gl/gl.odin";
 
 import font_gl "font_opengl.odin";
 
-Vec4 :: #type_alias font_gl.Vec4;
+Vec4 :: font_gl.Vec4;
 
 main :: proc() {
 
@@ -21,7 +21,7 @@ main :: proc() {
 	gl.load_up_to(4, 3, glfw.set_proc_address);
 
 	//
-	sizes := [...]int{72, 68, 64, 60, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 16, 12};
+	sizes := [?]int{72, 68, 64, 60, 56, 52, 48, 44, 40, 36, 32, 28, 24, 20, 16, 12};
 	codepoints: [96]rune;
 	for i in 0..95 {
 		codepoints[i] = rune(32+i);
@@ -56,7 +56,7 @@ main :: proc() {
 		font_gl.set_state();
 
 		str := "The quick brown fox jumps over the lazy dog";
-		palette := [...]u16{
+		palette := [?]u16{
 			1, 1, 1, // the
 			0, 
 			2, 2, 2, 2, 2, // quick
