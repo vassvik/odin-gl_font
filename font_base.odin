@@ -1,10 +1,12 @@
-import "core:fmt.odin";
-import "core:math.odin";
-import "core:os.odin";
-import "core:strings.odin";
+package font_gl
 
-import stbi "shared:odin-stb/stb_image_write.odin";
-import stbtt "shared:odin-stb/stb_truetype.odin"
+import "core:fmt";
+import "core:math";
+import "core:os";
+import "core:strings";
+
+import "shared:odin-stb/stbtt";
+import "shared:odin-stb/stbi";
 
 
 Glyph_Metric :: stbtt.Packed_Char;

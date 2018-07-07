@@ -1,9 +1,9 @@
-import "core:fmt.odin";
-import "core:mem.odin";
+package font_gl 
 
-import "shared:odin-gl/gl.odin";
+import "core:fmt";
+import "core:mem";
 
-export "font_base.odin";
+import "shared:odin-gl";
 
 
 MAX_COLORS :: 65536;
