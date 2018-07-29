@@ -25,8 +25,8 @@ offset_metrics: int;
 offset_colors: int;
 
 destroy_gl :: proc(font: Font) {
-	if colors != nil do free(colors);
-	if glyph_instances != nil do free(glyph_instances);
+	if colors != nil do delete(colors);
+	if glyph_instances != nil do delete(glyph_instances);
 
 	destroy(font);
 }

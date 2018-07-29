@@ -33,11 +33,11 @@ Font :: struct {
 }
 
 destroy :: proc(using font: Font) {
-	if identifier != "" do free(identifier);
-	if codepoints != nil do free(codepoints);
-	if glyph_metrics != nil do free(glyph_metrics);
-	if size_metrics != nil do free(size_metrics);
-	if bitmap != nil do free(bitmap);
+	if identifier != "" do delete(identifier);
+	if codepoints != nil do delete(codepoints);
+	if glyph_metrics != nil do delete(glyph_metrics);
+	if size_metrics != nil do delete(size_metrics);
+	if bitmap != nil do delete(bitmap);
 }
 
 init_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, sizes: []int, codepoints: []rune, width := 2048) -> (Font, bool) {
@@ -84,7 +84,7 @@ init_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, sizes: [
 		fmt.println("Error: could not read font file.");
 		return Font{}, false;
 	}
-	defer free(ttf_data);
+	defer delete(ttf_data);
 
 	// Calculate the maximum number of pixels used, 
 	// assuming all glyphs are squares and equal to the font size in pixels.
@@ -102,7 +102,7 @@ init_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, sizes: [
 
 	// make a temporary raster bitmap to be used by stb_truetype
 	bitmap_raster := make([]byte, width*height);
-	defer free(bitmap_raster);
+	defer delete(bitmap_raster);
 
 	// pre-allocate glyph metric storage
 	glyph_metrics := make([]Glyph_Metric, len(sizes)*len(codepoints));
@@ -306,7 +306,7 @@ parse_string :: proc[parse_string_provided, parse_string_allocate];
 save_as_png :: proc(using font: ^Font) {
 	// output the bitmap to a file, where each font size is coloured differently
 	color_image := make([]u8, 3*width*height);
-	defer free(color_image);
+	defer delete(color_image);
 
 	// color each size differently:
 	for _, i in size_metrics {
