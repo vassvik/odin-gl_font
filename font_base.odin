@@ -73,7 +73,7 @@ init_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, sizes: [
 
 	for codepoint, i in codepoints {
 		if codepoint <= 0 {
-			fmt.printf("Error: Invalid codepoint '%c' at index '%d' detected.\n", codepoint, i);
+			fmt.printf("Error: Invalid codepoint '%c' = %d at index '%d' detected.\n", codepoint, codepoint, i);
 			return Font{}, false;		
 		}
 	}
@@ -169,7 +169,7 @@ init_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, sizes: [
 
 	// make a copy of the bitmap, but truncate it
 	font.bitmap = make([]byte, width*max_y);
-	for k in 0..width*max_y do font.bitmap[k] = bitmap_raster[k];
+	for k in 0..width*max_y-1 do font.bitmap[k] = bitmap_raster[k];
 
 	return font, true;
 }
@@ -315,8 +315,8 @@ save_as_png :: proc(using font: ^Font) {
 		B := 0.5 + 0.5*math.cos(5.0*f64(i));
 		for _, j in codepoints {
 			using m := &glyph_metrics[i*len(codepoints)+j];
-			for y in y0...y1 {
-				for x in x0...x1 {
+			for y in y0..y1 {
+				for x in x0..x1 {
 					id := int(y)*width + int(x);
 
 					p := bitmap[id];
@@ -329,7 +329,7 @@ save_as_png :: proc(using font: ^Font) {
 	}
 
 	backing: [64]byte;
-	output_filename := fmt.bprintf(backing[...], "%s.png", identifier);
+	output_filename := fmt.bprintf(backing[:], "%s.png", identifier);
 	stbi.write_png(output_filename, width, height, 3, color_image, 0);
 }
 

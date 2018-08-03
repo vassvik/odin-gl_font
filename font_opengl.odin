@@ -176,20 +176,20 @@ draw_instances :: proc(instances: []Glyph_Instance, offset: [2]f32) {
 
 str_backing: [1024]u8;
 
-draw_string_nopalette :: inline proc(font: ^Font, size: int, at: [2]f32, palette: u16, format: string, args: ...any) -> (int, f32, f32) {
-	return draw_string_palette(font, size, at, []u16{palette}, format, ...args);
+draw_string_nopalette :: inline proc(font: ^Font, size: int, at: [2]f32, palette: u16, format: string, args: ..any) -> (int, f32, f32) {
+	return draw_string_palette(font, size, at, []u16{palette}, format, ..args);
 }
 
-draw_string_palette :: inline proc(font: ^Font, size: int, at: [2]f32, palette: []u16, format: string, args: ...any) -> (int, f32, f32) {
+draw_string_palette :: inline proc(font: ^Font, size: int, at: [2]f32, palette: []u16, format: string, args: ..any) -> (int, f32, f32) {
 	str: string;
 	if len(args) > 0 {
-		str = fmt.bprintf(str_backing[...], format, ...args);
+		str = fmt.bprintf(str_backing[:], format, ..args);
 	} else {
 		str = format;
 	}
 
 	num, dx, dy := parse_string(font, str, size, palette, glyph_instances);
-	draw_instances(glyph_instances[0..num], at);
+	draw_instances(glyph_instances[0:num], at);
 
 	return num, dx, dy;
 }
