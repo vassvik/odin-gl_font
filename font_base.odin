@@ -300,7 +300,7 @@ parse_string_provided :: proc(using font: ^Font, str: string, ask_size: int, pal
     return num, max_cursor_x, cursor_y;
 }
 
-parse_string :: proc[parse_string_provided, parse_string_allocate];
+parse_string :: proc{parse_string_provided, parse_string_allocate};
 
 
 save_as_png :: proc(using font: ^Font) {

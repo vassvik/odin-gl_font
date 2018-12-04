@@ -194,7 +194,7 @@ draw_string_palette :: inline proc(font: ^Font, size: int, at: [2]f32, palette: 
 	return num, dx, dy;
 }
 
-draw_string :: proc[draw_string_palette, draw_string_nopalette];
+draw_string :: proc{draw_string_palette, draw_string_nopalette};
 
 vertex_shader_source := `
 #version 430 core
