@@ -282,7 +282,7 @@ void main() {
 	    float g = textureOffset(sampler_bitmap, uv, ivec2(0, 0)).r;
 	    float b = textureOffset(sampler_bitmap, uv, ivec2(1, 0)).r;
 	    vec4 c = palette[palette_index];
-	    vec4 bg_color = vec4(39/255.0, 40/255.0, 34/255.0, 1.0);
+	    vec4 bg_color = vec4(255.0/255.0, 255.0/255.0, 255.0/255.0, 1.0);
 
 	   	color = mix(bg_color, c, vec4(r, g, b, 1.0));
     } else {

@@ -287,7 +287,7 @@ parse_string_provided :: proc(using font: ^Font, str: string, ask_size: int, pal
 
         //cursor_x += cast(f32)int(glyph_metrics[index].xadvance);
         //cursor_x += glyph_metrics[index].xadvance;
-        cursor_x += cast(f32)int(glyph_metrics[index].xadvance + 0.5); // round to nearest integer
+        cursor_x += glyph_metrics[index].xadvance; 
         //fmt.println(num, cursor_y);
         num += 1;
     }
