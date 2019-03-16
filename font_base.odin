@@ -154,7 +154,7 @@ init_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, sizes: [
 	font.oversample = oversample;
 	
 	// copy the identifier name
-	font.identifier = strings.new_string(identifier);
+	font.identifier = strings.clone(identifier);
 
 	// make a copy of the unicode codepoints
 	// also check if the codepoints are sorted
