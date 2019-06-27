@@ -3,7 +3,7 @@ package font_gl
 import "core:fmt";
 import "core:mem";
 
-import "shared:odin-gl";
+import gl "shared:odin-gl";
 
 
 MAX_COLORS :: 65536;
