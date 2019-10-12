@@ -230,6 +230,11 @@ parse_string_allocate :: proc(using font: ^Font, str: string, ask_size: int, pal
 	return instances, num, dx, dy;
 }
 
+parse_string_noallocate :: proc(using font: ^Font, str: string, ask_size: int, palette: []u16) -> (int, f32, f32) {
+	num, dx, dy := parse_string_provided(font, str, ask_size, palette, nil);
+	return num, dx, dy;
+}
+
 parse_string_provided :: proc(using font: ^Font, str: string, ask_size: int, palette: []u16, instances: []Glyph_Instance) -> (int, f32, f32) {
 	// see if we can find the requested font size
 	idx := -1;
@@ -259,9 +264,9 @@ parse_string_provided :: proc(using font: ^Font, str: string, ask_size: int, pal
             continue;
         }
 
-        instances[num].x = float_to_fixed(cursor_x);
-        instances[num].y = float_to_fixed(cursor_y);
-        instances[num].palette = palette == nil ? 0 : len(palette) == 1 ? palette[0] : palette[i];
+        if instances != nil do instances[num].x = float_to_fixed(cursor_x);
+        if instances != nil do instances[num].y = float_to_fixed(cursor_y);
+        if instances != nil do instances[num].palette = palette == nil ? 0 : len(palette) == 1 ? palette[0] : palette[i];
 
         index := -1;
         if codepoints_are_dense {
@@ -283,7 +288,7 @@ parse_string_provided :: proc(using font: ^Font, str: string, ask_size: int, pal
         	}
         }
         if index == -1 do break;
-        instances[num].index = u16(index);
+        if instances != nil do instances[num].index = u16(index);
 
         //cursor_x += cast(f32)int(glyph_metrics[index].xadvance);
         //cursor_x += glyph_metrics[index].xadvance;
