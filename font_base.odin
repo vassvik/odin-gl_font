@@ -91,7 +91,7 @@ init_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, sizes: [
 	// This *will* overestimate the pixel count by *a lot*, 
 	// so we will not bother counting the padding
 	total_size := 0;
-	for size, i in sizes {
+	for size in sizes {
 		total_size += size*size;
 	}
 	total_size *= oversample[0]*oversample[1]*len(codepoints);
@@ -114,7 +114,7 @@ init_from_ttf :: proc(ttf_name, identifier: string, oversample: [2]int, sizes: [
 	}
 
 	// do the actual packing of the glyphs
-	pc, success_pack := pack_begin(bitmap_raster, width, height, 0, 1);   
+	pc, _ := pack_begin(bitmap_raster, width, height, 0, 1);   
 	pack_set_oversampling(&pc, oversample[0], oversample[1]); 
 	pack_font_ranges(&pc, ttf_data, 0, pack_ranges);
 	pack_end(&pc);
@@ -275,14 +275,14 @@ parse_string_provided :: proc(using font: ^Font, str: string, ask_size: int, pal
         	}
         } else if codepoints_are_sorted {
         	// bisection
-        	if i := bisect(codepoints, c); i != -1 {
-        		index = idx*len(codepoints) + i;
+        	if j := bisect(codepoints, c); j != -1 {
+        		index = idx*len(codepoints) + j;
         	}
         } else {
         	// linear search
-        	for C, i in codepoints {
+        	for C, j in codepoints {
         		if C == c {
-        			index = idx*len(codepoints) + i;
+        			index = idx*len(codepoints) + j;
         			break;
         		}
         	}
