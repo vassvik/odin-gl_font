@@ -46,7 +46,6 @@ init_from_ttf_gl :: proc(ttf_name, identifier: string, use_subpixels: bool, size
     	return Font{}, false;
 	}
 	program = _program;
-    gl.UseProgram(program);
 
 	// init the base font stuff
 	font, success := init_from_ttf(ttf_name, identifier, use_subpixels ? [2]int{3, 1} : [2]int{1,1}, sizes, codepoints);
@@ -115,10 +114,13 @@ init_from_ttf_gl :: proc(ttf_name, identifier: string, use_subpixels: bool, size
 	gl.BindBufferRange(gl.SHADER_STORAGE_BUFFER, 2, all_buffer, offset_colors,    size_colors);
 
 	// 
+	last_program: i32;
+    gl.GetIntegerv(gl.CURRENT_PROGRAM, &last_program);
 	gl.UseProgram(program);
     gl.Uniform2f(gl.get_uniform_location(program, "bitmap_resolution"), f32(font.width), f32(font.height)); 
     gl.Uniform1i(gl.get_uniform_location(program, "sampler_bitmap"), 0);
     gl.Uniform1i(gl.get_uniform_location(program, "use_subpixels"), i32(use_subpixels));
+    gl.UseProgram(u32(last_program));
 
 	return font, true;
 }
@@ -156,9 +158,11 @@ set_state :: proc() {
     gl.GetIntegerv(gl.VIEWPORT, &dims[0]);
 
     //
+    last_program: i32;
+    gl.GetIntegerv(gl.CURRENT_PROGRAM, &last_program);
 	gl.UseProgram(program);
     gl.Uniform2f(gl.get_uniform_location(program, "window_resolution"), f32(dims[2] - dims[0]), f32(dims[3]-dims[1]));
-
+    gl.UseProgram(u32(last_program));
 }
 
 draw_instances :: proc(instances: []Glyph_Instance, offset: [2]f32) {
@@ -168,10 +172,14 @@ draw_instances :: proc(instances: []Glyph_Instance, offset: [2]f32) {
 	gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, all_buffer);
  	gl.BufferSubData(gl.SHADER_STORAGE_BUFFER, 0, len(instances)*size_of(Glyph_Instance), &instances[0]);
 	
+	last_program: i32;
+    gl.GetIntegerv(gl.CURRENT_PROGRAM, &last_program);
+    gl.UseProgram(program);
 	gl.Uniform2f(gl.get_uniform_location(program, "string_offset"), offset.x, offset.y); 
  	
 	//
 	gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, cast(i32)len(instances));
+    gl.UseProgram(u32(last_program));
 }
 
 str_backing: [1024]u8;
