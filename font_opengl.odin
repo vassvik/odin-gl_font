@@ -161,7 +161,7 @@ set_state :: proc() {
     last_program: i32;
     gl.GetIntegerv(gl.CURRENT_PROGRAM, &last_program);
 	gl.UseProgram(program);
-    gl.Uniform2f(gl.get_uniform_location(program, "window_resolution"), f32(dims[2] - dims[0]), f32(dims[3]-dims[1]));
+    gl.Uniform2f(gl.get_uniform_location(program, "window_resolution"), f32(dims[2]), f32(dims[3]));
     gl.UseProgram(u32(last_program));
 }
 
