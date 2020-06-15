@@ -132,7 +132,7 @@ update_colors :: proc(start, num: int) {
  	gl.BufferSubData(gl.SHADER_STORAGE_BUFFER, offset_colors, num*size_of(Vec4), &colors[start]);
 }
 
-set_state :: proc() {
+set_state :: proc(in_vao: u32 = 0) {
 	//
 	gl.Disable(gl.CULL_FACE);
 	gl.Disable(gl.DEPTH_TEST);
@@ -141,7 +141,7 @@ set_state :: proc() {
     gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
 	//
-	gl.BindVertexArray(vao);
+	gl.BindVertexArray(in_vao == 0 ? vao : in_vao);
 	gl.BindBuffer(gl.SHADER_STORAGE_BUFFER, all_buffer);
 
     //
