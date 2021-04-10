@@ -184,11 +184,11 @@ draw_instances :: proc(instances: []Glyph_Instance, offset: [2]f32) {
 
 str_backing: [1024]u8;
 
-draw_string_nopalette :: inline proc(font: ^Font, size: int, at: [2]f32, palette: u16, format: string, args: ..any) -> (int, f32, f32) {
-	return draw_string_palette(font, size, at, []u16{palette}, format, ..args);
+draw_string_nopalette :: proc(font: ^Font, size: int, at: [2]f32, palette: u16, format: string, args: ..any) -> (int, f32, f32) {
+	return #force_inline draw_string_palette(font, size, at, []u16{palette}, format, ..args);
 }
 
-draw_string_palette :: inline proc(font: ^Font, size: int, at: [2]f32, palette: []u16, format: string, args: ..any) -> (int, f32, f32) {
+draw_string_palette :: proc(font: ^Font, size: int, at: [2]f32, palette: []u16, format: string, args: ..any) -> (int, f32, f32) {
 	str: string;
 	if len(args) > 0 {
 		str = fmt.bprintf(str_backing[:], format, ..args);
